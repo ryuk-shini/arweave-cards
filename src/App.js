@@ -21,26 +21,17 @@ function removeClass(ele, cls) {
 	}
 }
 
-function fadeOut(fadeTarget, interval) {
-	var fadeEffect = setInterval(function () {
-		if (!fadeTarget.style.opacity) {
-			fadeTarget.style.opacity = 1;
-		}
-		if (fadeTarget.style.opacity > 0) {
-			fadeTarget.style.opacity -= 0.1;
-		} else {
-			clearInterval(fadeEffect);
-		}
-	}, interval);
-}
 function fadeIn(fadeTarget, interval) {
 	var fadeEffect = setInterval(function () {
-		if (!fadeTarget.style.opacity) {
+		if (fadeTarget.style.opacity == '') {
 			fadeTarget.style.opacity = 0;
 		}
-		if (fadeTarget.style.opacity > 0) {
-			fadeTarget.style.opacity += 0.1;
+		if (fadeTarget.style.opacity < 1) {
+			fadeTarget.style.opacity =
+				parseFloat(fadeTarget.style.opacity) + 0.1;
 		} else {
+			fadeTarget.style.display = 'block';
+			fadeTarget.style.opacity = '';
 			clearInterval(fadeEffect);
 		}
 	}, interval);
@@ -120,6 +111,7 @@ class App extends Component {
 		this.renderCards = this.renderCards.bind(this);
 		this.checkCard = this.checkCard.bind(this);
 		this.win = this.win.bind(this);
+		this.reset = this.reset.bind(this);
 	}
 	shuffle(array) {
 		var counter = array.length,
@@ -173,7 +165,7 @@ class App extends Component {
 				}, 500);
 			}
 			if (
-				document.getElementsByClassName('matched').length ==
+				document.getElementsByClassName('matched').length !=
 				this.state.shuffleCards.length
 			) {
 				this.win();
@@ -184,17 +176,30 @@ class App extends Component {
 		this.setState({ pause: true });
 		setTimeout(() => {
 			this.showModal();
-			fadeOut(document.getElementsByClassName('game')[0], 100);
 		}, 1000);
 	}
 	showModal() {
-		document.getElementsByClassName('modal-overlay').style.display =
+		document.getElementsByClassName('modal-overlay')[0].style.display =
 			'block';
 		fadeIn(document.getElementsByClassName('modal')[0], 100);
 	}
 	hideModal() {
-		document.getElementsByClassName('modal').style.display = 'none';
-		document.getElementsByClassName('modal-overlay').style.display = 'none';
+		document.getElementsByClassName('modal')[0].style.display = 'none';
+		document.getElementsByClassName('modal-overlay')[0].style.display =
+			'none';
+	}
+	reset() {
+		Array.from(document.getElementsByClassName('inside')).forEach((ele) => {
+			removeClass(ele, 'picked');
+			removeClass(ele, 'matched');
+		});
+		this.hideModal();
+		let cds = this.state.cards;
+		this.setState({
+			shuffleCards: this.shuffle(cds.concat(cds)),
+			paused: false,
+			guess: null,
+		});
 	}
 	renderCards() {
 		return (
@@ -230,7 +235,9 @@ class App extends Component {
 				<div className="modal-overlay">
 					<div className="modal">
 						<h2 className="winner">You Rock!</h2>
-						<button className="restart">Play Again?</button>
+						<button className="restart" onClick={this.reset}>
+							Play Again?
+						</button>
 						<p className="message">
 							Developed on{' '}
 							<a href="https://arweave.rog">ARweave</a> by{' '}
