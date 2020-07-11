@@ -132,7 +132,7 @@ class App extends Component {
 			this.state.wallet,
 		);
 		console.log('TX', tx);
-		tx.addTag('App-Name', 'arweave-cards');
+		tx.addTag('App-Name', 'arweave-crypto-cards');
 		tx.addTag('App-Version', '0.0.1');
 		tx.addTag('Unix-Time', unixTime);
 		tx.addTag('Type', 'score');
@@ -147,7 +147,7 @@ class App extends Component {
 			expr1: {
 				op: 'equals',
 				expr1: 'App-Name',
-				expr2: 'arweave-cards',
+				expr2: 'arweave-crypto-cards',
 			},
 			expr2: {
 				op: 'equals',
@@ -369,12 +369,14 @@ class App extends Component {
 		let entries = [];
 		let added = false;
 		this.state.leaderboard.forEach((v) => {
+			if (typeof v.unixTime == 'undefined') return;
 			if (v.value < this.state.score && !added && this.state.start) {
 				entries.push({
 					value: this.state.score,
 					id: this.state.address,
 					name: this.state.playerName,
 					highlight: true,
+					player: this.state.address,
 				});
 				added = true;
 			}
