@@ -106,7 +106,6 @@ body {
 }
 
 .modal-overlay {
-  display: none;
   background: rgba(0, 0, 0, 0.8);
   position: fixed;
   top: 0;
@@ -116,10 +115,9 @@ body {
 }
 
 .modal {
-  display: none;
   position: relative;
   width: 500px;
-  height: 400px;
+  height: 800px;
   max-height: 90%;
   max-width: 90%;
   min-height: 380px;
@@ -129,10 +127,16 @@ body {
   transform: translateY(-50%);
   padding: 30px 10px;
 }
-.modal .winner {
-  font-size: 80px;
+.modal .label {
+  font-size: 70px;
   text-align: center;
   font-family: 'Anton', sans-serif;
+  color: #4d4d4d;
+  text-shadow: 0px 3px 0 black;
+}
+.modal .winner {
+  font-size: 40px;
+  text-align: center;
   color: #4d4d4d;
   text-shadow: 0px 3px 0 black;
 }
@@ -144,9 +148,9 @@ body {
 .modal .restart {
   font-family: 'Anton', sans-serif;
   margin: 30px auto;
-  padding: 20px 30px;
+  padding: 10px 20px;
   display: block;
-  font-size: 30px;
+  font-size: 20px;
   border: none;
   background: #4d4d4d;
   background: linear-gradient(#4d4d4d, #222);
@@ -232,4 +236,24 @@ footer .disclaimer {
   footer .disclaimer {
     font-size: 8px;
   }
+}
+
+/**/
+.file-input {
+  height: 200px;
+  border: 2px dashed #62666f;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin: auto;
+  max-width: 300px;
+}
+.file-input input[type='file'] {
+  opacity: 0;
+  position: absolute;
+  background: none;
+  width: 100%;
+  height: 100%;
 }

@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import './App.css';
+import Arweave from 'arweave/web';
 
 const hasClass = (elem, name) => {
 	let e = elem.className;
@@ -23,18 +24,8 @@ function removeClass(ele, cls) {
 
 function fadeIn(fadeTarget, interval) {
 	var fadeEffect = setTimeout(function () {
-		// var fadeEffect = setInterval(function () {
-		// if (fadeTarget.style.opacity == '') {
-		// 	fadeTarget.style.opacity = 0;
-		// }
-		// if (fadeTarget.style.opacity < 1) {
-		// 	fadeTarget.style.opacity =
-		// 		parseFloat(fadeTarget.style.opacity) + 0.1;
-		// } else {
 		fadeTarget.style.display = 'block';
 		fadeTarget.style.opacity = '';
-		// 	clearInterval(fadeEffect);
-		// }
 	}, interval);
 }
 
@@ -108,12 +99,37 @@ class App extends Component {
 			shuffleCards: this.shuffle(cds.concat(cds)),
 			paused: false,
 			guess: null,
+			score: 1000,
+			finished: false,
+			loggedIn: false,
+			wallet: {},
 		};
 		this.renderCards = this.renderCards.bind(this);
 		this.checkCard = this.checkCard.bind(this);
 		this.win = this.win.bind(this);
 		this.reset = this.reset.bind(this);
+		this.login = this.login.bind(this);
+		this.submitScore = this.submitScore.bind(this);
 	}
+	async submitScore() {
+		var unixTime = Math.round(new Date().getTime() / 1000);
+		var tx = await this.state.arweave.createTransaction(
+			{
+				data: this.state.score.toString(),
+			},
+			this.state.wallet,
+		);
+		console.log(tx);
+		tx.addTag('App-Name', 'arweave-cards');
+		tx.addTag('App-Version', '0.0.1');
+		tx.addTag('Unix-Time', unixTime);
+		tx.addTag('Type', 'score');
+		await this.state.arweave.transactions.sign(tx, this.state.wallet);
+		console.log(tx.id);
+		await this.state.arweave.transactions.post(tx);
+		alert('Submitting score');
+	}
+	fetchScore() {}
 	shuffle(array) {
 		var counter = array.length,
 			temp,
@@ -140,6 +156,8 @@ class App extends Component {
 			!hasClass(elem, 'matched') &&
 			!hasClass(elem, 'picked')
 		) {
+			let newScore = this.state.score - 10;
+			this.setState({ score: newScore > 0 ? newScore : 0 });
 			addClass(elem, 'picked');
 			if (!this.state.guess) {
 				this.setState({ guess: attr(elem, 'data-id') });
@@ -166,7 +184,7 @@ class App extends Component {
 				}, 500);
 			}
 			if (
-				document.getElementsByClassName('matched').length ==
+				document.getElementsByClassName('matched').length !=
 				this.state.shuffleCards.length
 			) {
 				this.win();
@@ -174,7 +192,8 @@ class App extends Component {
 		}
 	}
 	win() {
-		this.setState({ pause: true });
+		this.setState({ pause: true, finished: true });
+		this.submitScore();
 		setTimeout(() => {
 			this.showModal();
 		}, 1000);
@@ -190,6 +209,7 @@ class App extends Component {
 			'none';
 	}
 	reset() {
+		if (!this.state.loggedIn) return;
 		Array.from(document.getElementsByClassName('inside')).forEach((ele) => {
 			removeClass(ele, 'picked');
 			removeClass(ele, 'matched');
@@ -200,6 +220,7 @@ class App extends Component {
 			shuffleCards: this.shuffle(cds.concat(cds)),
 			paused: false,
 			guess: null,
+			score: 1000,
 		});
 	}
 	renderCards() {
@@ -229,13 +250,89 @@ class App extends Component {
 			</div>
 		);
 	}
+	componentDidMount() {
+		var arweave = Arweave.init({
+			host: 'arweave.net',
+			port: 443,
+			protocol: 'https',
+		});
+		this.setState({ arweave });
+	}
+	login(event) {
+		event.stopPropagation();
+		event.preventDefault();
+		const _this = this;
+		var fr = new FileReader();
+		fr.onload = function (ev) {
+			try {
+				let wallet = JSON.parse(ev.target.result);
+
+				_this.state.arweave.wallets
+					.jwkToAddress(wallet)
+					.then((address) => {
+						console.log(address);
+						_this.setState({ wallet, loggedIn: true, address });
+						_this.hideModal();
+						// update_login_state(true, public_address);
+					});
+			} catch (err) {
+				alert('Error logging in: ' + err);
+			}
+		};
+		fr.readAsText(event.target.files[0]);
+	}
 	render() {
 		return (
 			<div className="wrap">
 				{this.renderCards()}
 				<div className="modal-overlay">
 					<div className="modal">
-						<h2 className="winner">You Rock!</h2>
+						<h2 className="label">AR Cards</h2>
+
+						{this.state.finished ? (
+							<div>
+								<h4 className="winner">You Rock!</h4>
+								<span>{this.state.address}</span>
+								<span>{this.state.score}</span>
+							</div>
+						) : (
+							''
+						)}
+						{!this.state.loggedIn ? (
+							<div className="not-logged-in">
+								<div className="file-input">
+									{
+										//https://stackoverflow.com/questions/37457128/react-open-file-browser-on-click-a-divs
+									}
+									<input
+										className="clickable"
+										type="file"
+										id="file"
+										onChange={this.login}
+									/>
+									<div id="desc">
+										Drop a wallet keyfile to login
+									</div>
+								</div>
+								<div className="mt-3">
+									<p
+										style={{ textAlign: 'center' }}
+										className="message"
+									>
+										Don't have a wallet? Get one{' '}
+										<a
+											href="https://tokens.arweave.org/"
+											target="_blank"
+										>
+											here
+										</a>
+										!
+									</p>
+								</div>
+							</div>
+						) : (
+							''
+						)}
 						<button className="restart" onClick={this.reset}>
 							Play Again?
 						</button>
