@@ -21,7 +21,9 @@ function removeClass(ele, cls) {
 		ele.className = ele.className.replace(reg, '');
 	}
 }
-
+function getUrl(id) {
+	return `https://viewblock.io/arweave/tx/${id}`;
+}
 function fadeIn(fadeTarget, interval) {
 	var fadeEffect = setTimeout(function () {
 		fadeTarget.style.display = 'block';
@@ -34,63 +36,63 @@ class App extends Component {
 		super();
 		let cds = [
 			{
-				name: 'php',
-				img: 'logos/php-logo_1.png',
+				name: 'BTC',
+				img: 'logos/bitcoin.png',
 				id: 1,
 			},
 			{
-				name: 'css3',
-				img: 'logos/css3-logo.png',
+				name: 'ETH',
+				img: 'logos/ethereum.png',
 				id: 2,
 			},
 			{
-				name: 'html5',
-				img: 'logos/html5-logo.png',
+				name: 'monero',
+				img: 'logos/monero.png',
 				id: 3,
 			},
 			{
-				name: 'jquery',
-				img: 'logos/jquery-logo.png',
+				name: 'status',
+				img: 'logos/status.png',
 				id: 4,
 			},
 			{
-				name: 'javascript',
-				img: 'logos/js-logo.png',
+				name: 'zcash',
+				img: 'logos/zcash.png',
 				id: 5,
 			},
 			{
-				name: 'node',
-				img: 'logos/nodejs-logo.png',
+				name: 'cosmos',
+				img: 'logos/cosmos.png',
 				id: 6,
 			},
 			{
-				name: 'photoshop',
-				img: 'logos/photoshop-logo.png',
+				name: 'chainlink',
+				img: 'logos/chainlink.png',
 				id: 7,
 			},
 			{
-				name: 'python',
-				img: 'logos/python-logo.png',
+				name: 'cardano',
+				img: 'logos/cardano.png',
 				id: 8,
 			},
 			{
-				name: 'rails',
-				img: 'logos/rails-logo.png',
+				name: 'BAT',
+				img: 'logos/basic-attention-token.png',
 				id: 9,
 			},
 			{
-				name: 'sass',
-				img: 'logos/sass-logo.png',
+				name: 'matic-network',
+				img: 'logos/matic-network.png',
 				id: 10,
 			},
 			{
-				name: 'sublime',
-				img: 'logos/sublime-logo.png',
+				name: 'algorand',
+				img: 'logos/algorand.png',
 				id: 11,
 			},
 			{
-				name: 'wordpress',
-				img: 'logos/wordpress-logo.png',
+				name: 'tether',
+				img: 'logos/tether.png',
 				id: 12,
 			},
 		];
@@ -103,6 +105,12 @@ class App extends Component {
 			finished: false,
 			loggedIn: false,
 			wallet: {},
+			arweave: null,
+			leaderboard: [],
+			start: false,
+			addEntry: true,
+			shiftBy: 1,
+			playerName: '',
 		};
 		this.renderCards = this.renderCards.bind(this);
 		this.checkCard = this.checkCard.bind(this);
@@ -110,26 +118,100 @@ class App extends Component {
 		this.reset = this.reset.bind(this);
 		this.login = this.login.bind(this);
 		this.submitScore = this.submitScore.bind(this);
+		this.fetchScore = this.fetchScore.bind(this);
+		this.firstGame = this.firstGame.bind(this);
+		this.renderLeaderBoard = this.renderLeaderBoard.bind(this);
+		this.enterPlayerName = this.enterPlayerName.bind(this);
 	}
 	async submitScore() {
 		var unixTime = Math.round(new Date().getTime() / 1000);
 		var tx = await this.state.arweave.createTransaction(
 			{
-				data: this.state.score.toString(),
+				data: this.state.score.toString() + `&${this.state.playerName}`,
 			},
 			this.state.wallet,
 		);
-		console.log(tx);
+		console.log('TX', tx);
 		tx.addTag('App-Name', 'arweave-cards');
 		tx.addTag('App-Version', '0.0.1');
 		tx.addTag('Unix-Time', unixTime);
 		tx.addTag('Type', 'score');
 		await this.state.arweave.transactions.sign(tx, this.state.wallet);
-		console.log(tx.id);
-		await this.state.arweave.transactions.post(tx);
+		let resp = await this.state.arweave.transactions.post(tx);
+		console.log('Tx submission response', resp);
 		alert('Submitting score');
 	}
-	fetchScore() {}
+	async fetchScore(arweave) {
+		let query = {
+			op: 'and',
+			expr1: {
+				op: 'equals',
+				expr1: 'App-Name',
+				expr2: 'arweave-cards',
+			},
+			expr2: {
+				op: 'equals',
+				expr1: 'Type',
+				expr2: 'score',
+			},
+		};
+		const res = await arweave.arql(query);
+		var tx_rows = [];
+		if (res) {
+			tx_rows = await Promise.all(
+				res.map(async function (id, i) {
+					let tx_row = {};
+					let tx;
+					try {
+						tx = await arweave.transactions.get(id);
+					} catch (error) {
+						return {};
+						// Here, `error` would be an `Error` (with stack trace, etc.).
+						// Whereas if you used `throw 400`, it would just be `400`.
+					}
+
+					let tx_owner = await arweave.wallets.ownerToAddress(
+						tx.owner,
+					);
+
+					// if (tx_owner != address) return;
+
+					tx_row['unixTime'] = '0';
+					tx_row['type'] = null;
+					tx.get('tags').forEach((tag) => {
+						let key = tag.get('name', {
+							decode: true,
+							string: true,
+						});
+						let value = tag.get('value', {
+							decode: true,
+							string: true,
+						});
+						if (key === 'Unix-Time')
+							tx_row['unixTime'] = parseInt(value);
+						if (key === 'Type') tx_row['type'] = value;
+					});
+
+					let data = tx.get('data', { decode: true, string: true });
+					data = data.split('&');
+					tx_row['id'] = id;
+					tx_row['value'] = parseInt(data[0]);
+					tx_row['player'] = tx_owner;
+					tx_row['name'] = data[1];
+
+					return tx_row;
+				}),
+			);
+			tx_rows.sort((a, b) => {
+				return b.value - a.value != 0
+					? b.value - a.value
+					: a.unixTime - b.unixTime;
+			});
+			this.setState({ leaderboard: tx_rows });
+		}
+
+		console.log('Rows', tx_rows);
+	}
 	shuffle(array) {
 		var counter = array.length,
 			temp,
@@ -184,7 +266,7 @@ class App extends Component {
 				}, 500);
 			}
 			if (
-				document.getElementsByClassName('matched').length !=
+				document.getElementsByClassName('matched').length ==
 				this.state.shuffleCards.length
 			) {
 				this.win();
@@ -193,7 +275,7 @@ class App extends Component {
 	}
 	win() {
 		this.setState({ pause: true, finished: true });
-		this.submitScore();
+		// this.submitScore();
 		setTimeout(() => {
 			this.showModal();
 		}, 1000);
@@ -257,6 +339,7 @@ class App extends Component {
 			protocol: 'https',
 		});
 		this.setState({ arweave });
+		this.fetchScore(arweave);
 	}
 	login(event) {
 		event.stopPropagation();
@@ -270,16 +353,83 @@ class App extends Component {
 				_this.state.arweave.wallets
 					.jwkToAddress(wallet)
 					.then((address) => {
-						console.log(address);
 						_this.setState({ wallet, loggedIn: true, address });
-						_this.hideModal();
-						// update_login_state(true, public_address);
 					});
 			} catch (err) {
 				alert('Error logging in: ' + err);
 			}
 		};
 		fr.readAsText(event.target.files[0]);
+	}
+	firstGame() {
+		this.hideModal();
+		this.setState({ start: true });
+	}
+	renderLeaderBoard() {
+		let entries = [];
+		let added = false;
+		this.state.leaderboard.forEach((v) => {
+			if (v.value < this.state.score && !added && this.state.start) {
+				entries.push({
+					value: this.state.score,
+					id: this.state.address,
+					name: this.state.playerName,
+					highlight: true,
+				});
+				added = true;
+			}
+			entries.push(v);
+		});
+		if (!added && this.state.start) {
+			entries.push({
+				value: this.state.score,
+				id: this.state.address,
+				name: this.state.playerName,
+				highlight: true,
+				player: this.state.address,
+			});
+		}
+		return (
+			<table>
+				<thead>
+					<tr>
+						<th>Rank </th>
+						<th>Player Name </th>
+						<th>Player ID </th>
+						<th>Score</th>
+					</tr>
+				</thead>
+				<tbody>
+					{entries.map((obj, ind) => {
+						return (
+							<tr
+								key={ind}
+								className={obj.highlight ? 'highlight' : ''}
+							>
+								<td>{ind + 1}</td>
+								<td>{obj.name}</td>
+								<td>{obj.player}</td>
+								<td className="blue">
+									{!obj.highlight ? (
+										<a
+											href={getUrl(obj.id)}
+											target="_blank"
+										>
+											{obj.value}
+										</a>
+									) : (
+										<span>{obj.value}</span>
+									)}
+								</td>
+							</tr>
+						);
+					})}
+				</tbody>
+			</table>
+		);
+	}
+	enterPlayerName(event) {
+		this.setState({ playerName: event.target.value });
 	}
 	render() {
 		return (
@@ -290,11 +440,7 @@ class App extends Component {
 						<h2 className="label">AR Cards</h2>
 
 						{this.state.finished ? (
-							<div>
-								<h4 className="winner">You Rock!</h4>
-								<span>{this.state.address}</span>
-								<span>{this.state.score}</span>
-							</div>
+							<h4 className="winner">You Rock!</h4>
 						) : (
 							''
 						)}
@@ -331,11 +477,43 @@ class App extends Component {
 								</div>
 							</div>
 						) : (
-							''
+							<div>
+								{this.renderLeaderBoard()}
+								{this.state.start ? (
+									<div>
+										<button
+											className="restart"
+											onClick={this.reset}
+										>
+											Play Again !!
+										</button>
+										<button
+											className="restart"
+											onClick={this.submitScore}
+										>
+											Submit Score
+										</button>
+									</div>
+								) : (
+									<div>
+										<input
+											type="text"
+											className="forminput"
+											id="name"
+											placeholder="Enter your name"
+											onChange={this.enterPlayerName}
+										/>
+										<button
+											className="restart"
+											onClick={this.firstGame}
+										>
+											Play Game
+										</button>
+									</div>
+								)}
+							</div>
 						)}
-						<button className="restart" onClick={this.reset}>
-							Play Again?
-						</button>
+
 						<p className="message">
 							Developed on{' '}
 							<a href="https://arweave.rog">ARweave</a> by{' '}
@@ -343,36 +521,54 @@ class App extends Component {
 								Harsh Jain
 							</a>
 						</p>
-						<p className="share-text">Share it?</p>
-						<ul className="social">
-							<li>
-								<a
-									target="_blank"
-									className="twitter"
-									href="https://twitter.com/share?url=https://arweave.org"
-								>
-									<span className="fa fa-twitter"></span>
-								</a>
-							</li>
-							<li>
-								<a
-									target="_blank"
-									className="facebook"
-									href="https://www.facebook.com/sharer.php?u=https://arweave.org"
-								>
-									<span className="fa fa-facebook"></span>
-								</a>
-							</li>
-							<li>
-								<a
-									target="_blank"
-									className="google"
-									href="https://plus.google.com/share?url=https://arweave.org"
-								>
-									<span className="fa fa-google"></span>
-								</a>
-							</li>
-						</ul>
+						{this.state.start ? (
+							<div>
+								<p className="share-text">Share it?</p>
+								<ul className="social">
+									<li>
+										<a
+											target="_blank"
+											className="twitter"
+											href={
+												'https://twitter.com/share?url=I scored ' +
+												this.state.score +
+												' on ARweave cards build on https://arweave.org'
+											}
+										>
+											<span className="fa fa-twitter"></span>
+										</a>
+									</li>
+									<li>
+										<a
+											target="_blank"
+											className="facebook"
+											href={
+												'https://www.facebook.com/sharer.php?u=I scored ' +
+												this.state.score +
+												' on ARweave cards build on https://arweave.org'
+											}
+										>
+											<span className="fa fa-facebook"></span>
+										</a>
+									</li>
+									<li>
+										<a
+											target="_blank"
+											className="google"
+											href={
+												'https://plus.google.com/share?url=I scored ' +
+												this.state.score +
+												' on ARweave cards build on https://arweave.org'
+											}
+										>
+											<span className="fa fa-google"></span>
+										</a>
+									</li>
+								</ul>
+							</div>
+						) : (
+							''
+						)}
 					</div>
 				</div>
 				<footer>
