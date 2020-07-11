@@ -16,24 +16,25 @@ const attr = (elem, name) => {
 
 function removeClass(ele, cls) {
 	if (hasClass(ele, cls)) {
-		var reg = new RegExp('(\\s|^)' + cls + '(\\s|$)');
-		ele.className = ele.className.replace(reg, ' ');
+		var reg = new RegExp(cls, 'g');
+		ele.className = ele.className.replace(reg, '');
 	}
 }
 
 function fadeIn(fadeTarget, interval) {
-	var fadeEffect = setInterval(function () {
-		if (fadeTarget.style.opacity == '') {
-			fadeTarget.style.opacity = 0;
-		}
-		if (fadeTarget.style.opacity < 1) {
-			fadeTarget.style.opacity =
-				parseFloat(fadeTarget.style.opacity) + 0.1;
-		} else {
-			fadeTarget.style.display = 'block';
-			fadeTarget.style.opacity = '';
-			clearInterval(fadeEffect);
-		}
+	var fadeEffect = setTimeout(function () {
+		// var fadeEffect = setInterval(function () {
+		// if (fadeTarget.style.opacity == '') {
+		// 	fadeTarget.style.opacity = 0;
+		// }
+		// if (fadeTarget.style.opacity < 1) {
+		// 	fadeTarget.style.opacity =
+		// 		parseFloat(fadeTarget.style.opacity) + 0.1;
+		// } else {
+		fadeTarget.style.display = 'block';
+		fadeTarget.style.opacity = '';
+		// 	clearInterval(fadeEffect);
+		// }
 	}, interval);
 }
 
@@ -165,7 +166,7 @@ class App extends Component {
 				}, 500);
 			}
 			if (
-				document.getElementsByClassName('matched').length !=
+				document.getElementsByClassName('matched').length ==
 				this.state.shuffleCards.length
 			) {
 				this.win();
